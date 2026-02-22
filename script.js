@@ -696,6 +696,7 @@ var beijingMidnightTimer = null;
 function refreshAtBeijingMidnight() {
     lastDrawnByPool = { mao: null, bingfa: null, zhouyi: null, tarot: null };
     updatePageDate();
+    lastKnownBeijingDate = getTodayDateString();
     updateReDrawButton();
     changePool(currentPool);
     scheduleNextBeijingMidnight();
@@ -705,6 +706,20 @@ function scheduleNextBeijingMidnight() {
     var ms = getMsUntilNextBeijingMidnight();
     beijingMidnightTimer = setTimeout(refreshAtBeijingMidnight, ms);
 }
+
+/** 页面重新可见时检查是否已跨日（解决后台时定时器未触发导致日期不刷新） */
+var lastKnownBeijingDate = '';
+function checkDateRefreshOnVisible() {
+    var today = getTodayDateString();
+    if (lastKnownBeijingDate && lastKnownBeijingDate !== today) {
+        refreshAtBeijingMidnight();
+    }
+    lastKnownBeijingDate = today;
+}
+document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') checkDateRefreshOnVisible();
+});
+window.addEventListener('focus', checkDateRefreshOnVisible);
 
 /** 今日已抽次数（全卡池共用，最多 5 次） */
 function getDailyDrawUsed() {
@@ -1095,12 +1110,11 @@ function changePool(poolName) {
 
 function drawCard() {
     if (!currentPool) return;
-    // 调试点卡背缓存时暂时解禁，调完记得恢复
-    // var used = getDailyDrawUsed();
-    // if (used >= DAILY_DRAW_LIMIT) {
-    //     alert('今日 5 次已用完，明日再来～');
-    //     return;
-    // }
+    var used = getDailyDrawUsed();
+    if (used >= DAILY_DRAW_LIMIT) {
+        alert('今日 5 次已用完，明日再来～');
+        return;
+    }
     const pool = database[currentPool];
     if (!pool || pool.length === 0) return;
     const random = Math.floor(Math.random() * pool.length);
@@ -1342,8 +1356,7 @@ async function saveCardAsImage() {
 
 /** 再抽一张：淡出后重新抽卡，翻转时只显示卡背，翻回正面后再显示新内容；今日已抽满则不再抽 */
 function reDraw() {
-    // 调试点卡背缓存时暂时解禁，调完记得恢复
-    // if (getDailyDrawUsed() >= DAILY_DRAW_LIMIT) return;
+    if (getDailyDrawUsed() >= DAILY_DRAW_LIMIT) return;
     var front = document.getElementById('cardFront');
     if (!front) return;
     front.style.transition = 'opacity 0.3s ease';
@@ -1357,6 +1370,7 @@ function reDraw() {
 // 页面加载时：绑定「查看翻译」、卡背键盘抽卡、更新日期与节气、预约北京时间 0 点刷新
 document.addEventListener('DOMContentLoaded', function () {
     updatePageDate();
+    lastKnownBeijingDate = getTodayDateString();
     updatePoolButtonLabels();
     updateReDrawButton();
     scheduleNextBeijingMidnight();
