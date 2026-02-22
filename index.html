@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#b22222">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="seer">
+    <meta name="format-detection" content="telephone=no">
+    <title>seer</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <div class="pool-selector">
+            <button type="button" data-pool="mao" onclick="changePool('mao')">红星</button>
+            <button type="button" data-pool="bingfa" onclick="changePool('bingfa')">兵法</button>
+            <button type="button" data-pool="zhouyi" onclick="changePool('zhouyi')">周易</button>
+            <button type="button" data-pool="tarot" onclick="changePool('tarot')">塔罗</button>
+        </div>
+
+        <div class="card" id="capture-area" data-pool="">
+            <div class="card-flip-inner is-flipped" id="card-flip-inner">
+                <!-- 正面：日期 + 语录（保存图片时捕捉此面） -->
+                <div class="card-face card-front" id="cardFront">
+                    <div class="card-header">
+                        <div class="date-box">
+                            <div id="day-num">19</div>
+                            <div class="date-sub">
+                                <div id="month-year">二月 2026</div>
+                                <div id="day-week">周四</div>
+                            </div>
+                        </div>
+                        <div class="header-right">
+                            <div class="solar-term-header">
+                                <span id="term-name">雨水</span>
+                                <span id="term-days">距「惊蛰」13天</span>
+                            </div>
+                            <div class="lunar-box">
+                                <div id="lunar-text">正月初三</div>
+                                <div id="ganzhi-text">丙午年</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-content" id="card-content">
+                        <div class="tarot-image" id="tarot-image" aria-hidden="true"></div>
+                        <div class="tarot-layout" id="tarot-layout" aria-hidden="true">
+                            <div class="tarot-center-card" id="tarot-center-card"></div>
+                            <div class="tarot-title" id="tarot-title"></div>
+                            <div class="tarot-advice" id="tarot-advice"></div>
+                        </div>
+                        <div id="quote-display">星星之火，可以燎原。</div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="source-info">
+                            <span id="source-display">—— 毛泽东</span>
+                        </div>
+                    </div>
+                    <div class="card-logo" id="card-logo">seer</div>
+                </div>
+                <!-- 背面：开屏为传统色+磨砂玻璃，选卡池后为「点击抽卡」 -->
+                <div class="card-face card-back" id="cardBack" role="button" tabindex="0" aria-label="点击抽卡">
+                    <div class="card-back-default" id="card-back-default" aria-hidden="false">
+                        <p class="card-back-color-name" id="card-back-color-name">今日传统色&#x202f;·&#x202f;胭脂</p>
+                        <div class="card-back-hint-wrap">
+                            <p class="card-back-hint" id="card-back-hint">请点击上方卡池抽卡<br>每天共有5次抽卡机会</p>
+                        </div>
+                    </div>
+                    <div class="card-back-inner" id="card-back-inner" aria-hidden="true">
+                        <span class="card-back-draw-label" id="card-back-draw-label">点击抽卡</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="bingfa-translation-below" class="bingfa-translation-below" aria-hidden="true"></div>
+
+        <div class="card-actions card-actions-after-draw" id="card-actions-after-draw">
+            <button type="button" class="draw-btn draw-btn-secondary draw-btn-center" id="re-draw-btn" onclick="reDraw()">再抽一张</button>
+            <button type="button" class="draw-btn draw-btn-icon" onclick="saveCardAsImage()" title="保存图片" aria-label="保存图片">
+                <svg class="icon-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="tarotData.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,1167 @@
+:root {
+    --primary-red: #b22222;
+    --bg-paper: #fcfaf2; /* 仿古纸张色 */
+    --text-main: #2c2c2c;
+    /* 背景：淡黄+粉紫弥散（更明显）；卡片周围发光 */
+    --diffuse-yellow: rgba(255, 245, 200, 0.95);
+    --diffuse-pink: rgba(255, 210, 230, 0.7);
+    --diffuse-purple: rgba(228, 210, 255, 0.65);
+    --card-glow-yellow: rgba(255, 240, 180, 0.75);
+    --card-glow-pink: rgba(255, 180, 210, 0.55);
+    --card-glow-purple: rgba(210, 180, 255, 0.5);
+    /* 卡背颗粒纹理（内联 SVG，本地 file 打开可用） */
+    --card-back-noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+/* 禁止双击放大、禁止滚动，整页固定一屏 */
+html {
+    overflow: hidden;
+    height: 100%;
+    touch-action: pan-x pan-y;
+}
+body {
+    background: radial-gradient(ellipse 95% 85% at 30% 20%, var(--diffuse-yellow) 0%, transparent 65%),
+                radial-gradient(ellipse 90% 80% at 70% 75%, var(--diffuse-pink) 0%, transparent 60%),
+                radial-gradient(ellipse 85% 90% at 75% 25%, var(--diffuse-purple) 0%, transparent 58%),
+                radial-gradient(ellipse 75% 75% at 20% 70%, var(--diffuse-yellow) 0%, transparent 55%),
+                #fff8e8;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    font-family: 'Noto Serif SC', serif;
+    overflow: hidden;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    position: fixed;
+    inset: 0;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: none;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    overflow: hidden;
+    max-height: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+.pool-selector {
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: stretch;
+    width: 320px;
+    max-width: 100%;
+    margin-bottom: -20px;
+    padding: 6px 0;
+}
+
+/* 固定 2:3 比例 320×480，翻转容器；圆角像实体卡片，卡片周围发光 */
+.card {
+    width: 320px;
+    height: 480px;
+    box-shadow: 0 0 70px var(--card-glow-yellow),
+                0 0 50px var(--card-glow-pink),
+                0 0 45px var(--card-glow-purple),
+                0 10px 30px rgba(0,0,0,0.1);
+    position: relative;
+    perspective: 1000px;
+    border: 1px solid rgba(255, 248, 220, 0.6);
+    border-radius: 14px;
+    overflow: hidden;
+}
+/* 未选卡池时传统色卡背用直角 */
+.card[data-pool=""] {
+    border-radius: 0;
+}
+
+.card-flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 1s ease;
+}
+
+.card-flip-inner.is-flipped {
+    transform: rotateY(180deg);
+}
+
+/* 正反面共用：绝对叠放、隐藏背面 + 微弱纸张纤维感 */
+.card-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    box-sizing: border-box;
+    background-image: url("https://www.transparenttextures.com/patterns/paper-fibers.png");
+    background-blend-mode: multiply;
+}
+/* 翻转时只让朝上的一面接收点击，避免 3D 时误点到背面 */
+.card-flip-inner.is-flipped .card-front {
+    pointer-events: none;
+}
+.card-flip-inner:not(.is-flipped) .card-back {
+    pointer-events: none;
+}
+/* 卡面颗粒感（噪点层，正反面均有） */
+.card-face::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 120px 120px;
+    opacity: 0.28;
+    mix-blend-mode: multiply;
+}
+
+/* 正面：纸张色 + 内边距；底边略小使 seer 贴框线 */
+.card-front {
+    background-color: var(--bg-paper);
+    padding: 30px 30px 12px 30px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+/* 毛选：正文+引用上下居中放置，出处紧跟正文；logo 仍贴底 */
+.card-front:has(.card-footer.mao-footer) {
+    justify-content: flex-start;
+}
+.card-front:has(.card-footer.mao-footer) .card-content {
+    flex: 0 0 auto;
+    margin-top: auto;
+}
+.card-front:has(.card-footer.mao-footer) .card-footer {
+    margin-top: 0.4em;
+    margin-bottom: auto;
+}
+.card-front:has(.card-footer.mao-footer) .card-logo {
+    margin-top: auto;
+}
+.card-front.zhouyi-card {
+    background-color: #FDFBF7; /* 会被 JS 根据节气+时辰覆盖 */
+}
+/* 周易：日期、目前节气与卦象颜色统一（#b22222） */
+.card-front.zhouyi-card #day-num,
+.card-front.zhouyi-card .solar-term-header,
+.card-front.zhouyi-card #term-name {
+    color: #b22222;
+}
+/* 塔罗卡面：按花色配色（韦特牌意象），纸张纹理由 .card-face + 下方 ::before 加强 */
+.card-front:has(.card-content.tarot-active) {
+    /* 大阿尔卡纳：四色弥散混合（星币黄、圣杯蓝、权杖绿、宝剑银灰） */
+    background-color: #d8d4c8;
+    background-image:
+        radial-gradient(ellipse 85% 75% at 25% 25%, rgba(226, 212, 160, 0.75) 0%, transparent 55%),
+        radial-gradient(ellipse 80% 70% at 78% 28%, rgba(168, 200, 228, 0.7) 0%, transparent 52%),
+        radial-gradient(ellipse 75% 80% at 28% 78%, rgba(139, 170, 122, 0.65) 0%, transparent 50%),
+        radial-gradient(ellipse 70% 75% at 75% 75%, rgba(184, 184, 184, 0.7) 0%, transparent 50%);
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="pentacles"] {
+    background-color: #f0dc70; /* 星币：饱和金黄，少绿 */
+    background-image: none;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="cups"] {
+    background-color: #b8c8d8; /* 圣杯：浅灰蓝 */
+    background-image: none;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="wands"] {
+    background-color: #a8b89a; /* 权杖：浅灰绿 */
+    background-image: none;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="swords"] {
+    background-color: #d0d0d0; /* 宝剑：浅银灰 */
+    background-image: none;
+}
+/* 塔罗时加强纸张纹理 + 颗粒感（在现有 .card-face 纹理基础上叠加） */
+.card-front:has(.card-content.tarot-active)::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+        url("https://www.transparenttextures.com/patterns/paper-fibers.png"),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+    background-repeat: repeat, repeat;
+    background-size: auto, 120px 120px;
+    background-blend-mode: multiply, multiply;
+    opacity: 0.42;
+    pointer-events: none;
+}
+/* 周易深色主题时：头部日期/节气/农历与底边用浅色以保证可读 */
+.card-front.zhouyi-card.zhouyi-theme-dark .card-header,
+.card-front.zhouyi-card.zhouyi-theme-dark .card-header #day-num,
+.card-front.zhouyi-card.zhouyi-theme-dark .date-sub,
+.card-front.zhouyi-card.zhouyi-theme-dark .solar-term-header,
+.card-front.zhouyi-card.zhouyi-theme-dark .solar-term-header #term-days,
+.card-front.zhouyi-card.zhouyi-theme-dark .lunar-box {
+    color: rgba(255, 255, 255, 0.9);
+}
+.card-front.zhouyi-card.zhouyi-theme-dark .card-header {
+    border-bottom-color: rgba(255, 255, 255, 0.4);
+}
+.card-front.zhouyi-card.zhouyi-theme-dark .solar-term-header #term-name {
+    color: #e8a090;
+}
+.card-front.zhouyi-card.zhouyi-theme-dark::after {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* 框线：上下左右边距一致 */
+.card-front::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    border: 1px solid rgba(178, 34, 34, 0.1);
+    pointer-events: none;
+}
+/* 塔罗时框线：暗一点米色 + 手绘粗糙感，位置与原框线一致（沿 ::after 边缘） */
+.card-front:has(.card-content.tarot-active)::after {
+    border: none;
+    background: transparent no-repeat center/100% 100%;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath fill='none' stroke='%23e8e4d8' stroke-width='0.7' stroke-linecap='round' stroke-linejoin='round' d='M 0 1 L 25 0 L 50 1.5 L 75 0 L 100 1 L 99 25 L 100 50 L 99 75 L 100 100 L 75 99 L 50 100 L 25 99 L 0 100 L 1 75 L 0 50 L 1 25 Z'/%3E%3C/svg%3E");
+}
+
+/* 卡片底部 seer logo 区，贴着框线（框线 bottom: 10px） */
+.card-logo {
+    flex-shrink: 0;
+    min-height: 32px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #888;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.02em;
+    padding: 2px 10px 0;
+    box-sizing: border-box;
+    text-align: center;
+    white-space: pre-line;
+}
+
+/* 弥散层缓慢漂移动画（卡背径向渐变放大后通过位移实现动态效果） */
+@keyframes card-back-diffuse {
+    0%, 100% { background-position: 0 0, 0% 0%, 10% 10%, 0 0; }
+    25% { background-position: 0 0, 6% 4%, 4% 14%, 0 0; }
+    50% { background-position: 0 0, 12% 8%, 8% 6%, 0 0; }
+    75% { background-position: 0 0, 4% 12%, 14% 8%, 0 0; }
+}
+@keyframes card-back-diffuse-pool {
+    0%, 100% { background-position: 0 0, 0% 0%, 5% 5%, 20% 15%, 0 0; }
+    25% { background-position: 0 0, 15% 20%, 22% 8%, 8% 22%, 0 0; }
+    50% { background-position: 0 0, 25% 10%, 10% 25%, 18% 5%, 0 0; }
+    75% { background-position: 0 0, 8% 22%, 20% 12%, 5% 18%, 0 0; }
+}
+
+/* 背面：未选卡池时用弥散白，选卡池后由 data-pool 切到对应颜色 */
+.card-back {
+    background-image: var(--card-back-noise),
+        radial-gradient(ellipse 90% 80% at 40% 30%, rgba(255, 255, 255, 0.98), transparent 55%),
+        radial-gradient(ellipse 70% 70% at 75% 75%, rgba(250, 251, 252, 0.95), transparent 45%),
+        linear-gradient(#f5f6f8, #f5f6f8);
+    background-size: 70px 70px, 140% 140%, 140% 140%, 100% 100%;
+    background-position: 0 0, 0% 0%, 10% 10%, 0 0;
+    background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+    background-blend-mode: multiply, normal, normal, normal;
+    animation: card-back-diffuse 18s ease-in-out infinite;
+    transform: rotateY(180deg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(0,0,0,0.08);
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+/* 卡背内文：正常字体，无压印 */
+.card-back-inner {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+}
+
+/* 开屏卡背（未选卡池）：底色由 JS 设置，此处仅做 fallback 并关闭弥散动画，避免覆盖 JS 的 style.background */
+.card[data-pool=""] .card-back {
+    background-color: #e8e6e3;
+    background-image: none;
+    background-size: auto;
+    background-repeat: repeat;
+    background-position: 0 0;
+    background-blend-mode: normal;
+    animation: none;
+    border-color: rgba(255,255,255,0.2);
+}
+/* 开屏卡背保留颗粒感：叠在 JS 设置的纯色背景上 */
+.card[data-pool=""] .card-back::before {
+    opacity: 0.22;
+}
+.card-back-default {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    padding: 24px;
+    box-sizing: border-box;
+}
+.card[data-pool=""] .card-back-default {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+.card[data-pool=""] .card-back-inner {
+    display: none;
+}
+.card-back-color-name {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    font-family: 'Huiwen Mincho', '汇文明朝体', 'Noto Serif SC', serif;
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 0.12em;
+    margin: 0;
+    font-size: 1.5rem;
+    line-height: 1.8;
+    color: rgba(0, 0, 0, 0.78);
+    font-weight: 700;
+}
+.card-back-hint-wrap {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 28px;
+}
+.card-back-hint {
+    font-family: 'Huiwen Mincho', '汇文明朝体', 'Noto Serif SC', serif;
+    font-size: 12px;
+    letter-spacing: 0.25em;
+    color: rgba(0, 0, 0, 0.6);
+    margin: 0;
+    text-align: center;
+    animation: card-back-breathe 2.5s ease-in-out infinite;
+}
+@keyframes card-back-breathe {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+/* 毛选：弥散红 + 颗粒（动态漂移更明显） */
+.card[data-pool="mao"] .card-back {
+    background-image: var(--card-back-noise),
+        radial-gradient(ellipse 85% 75% at 25% 25%, rgba(180, 55, 50, 0.95), transparent 52%),
+        radial-gradient(ellipse 75% 85% at 78% 72%, rgba(120, 28, 28, 0.9), transparent 48%),
+        radial-gradient(ellipse 60% 60% at 50% 50%, rgba(139, 34, 34, 0.85), transparent 40%),
+        linear-gradient(#5c1515, #5c1515);
+    background-size: 70px 70px, 180% 180%, 180% 180%, 180% 180%, 100% 100%;
+    background-position: 0 0, 0% 0%, 5% 5%, 20% 15%, 0 0;
+    background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    background-blend-mode: multiply, normal, normal, normal, normal;
+    animation: card-back-diffuse-pool 12s ease-in-out infinite;
+    border-color: rgba(255,255,255,0.12);
+}
+.card[data-pool="mao"] .card-back-inner {
+    color: rgba(255,255,255,0.92);
+}
+/* 兵法：弥散蓝 + 颗粒（动态漂移更明显） */
+.card[data-pool="bingfa"] .card-back {
+    background-image: var(--card-back-noise),
+        radial-gradient(ellipse 85% 75% at 20% 60%, rgba(70, 115, 160, 0.9), transparent 52%),
+        radial-gradient(ellipse 75% 85% at 82% 28%, rgba(35, 75, 120, 0.9), transparent 48%),
+        radial-gradient(ellipse 60% 60% at 50% 50%, rgba(40, 85, 130, 0.85), transparent 40%),
+        linear-gradient(#1a3a5c, #1a3a5c);
+    background-size: 70px 70px, 180% 180%, 180% 180%, 180% 180%, 100% 100%;
+    background-position: 0 0, 0% 0%, 5% 5%, 20% 15%, 0 0;
+    background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    background-blend-mode: multiply, normal, normal, normal, normal;
+    animation: card-back-diffuse-pool 13s ease-in-out infinite;
+    border-color: rgba(255,255,255,0.15);
+}
+.card[data-pool="bingfa"] .card-back-inner {
+    color: rgba(255,255,255,0.92);
+}
+/* 周易：弥散紫 + 颗粒（动态漂移更明显） */
+.card[data-pool="zhouyi"] .card-back {
+    background-image: var(--card-back-noise),
+        radial-gradient(ellipse 85% 75% at 35% 25%, rgba(140, 115, 195, 0.9), transparent 48%),
+        radial-gradient(ellipse 70% 80% at 72% 68%, rgba(120, 95, 175, 0.88), transparent 45%),
+        radial-gradient(ellipse 55% 55% at 50% 50%, rgba(100, 80, 155, 0.9), transparent 38%),
+        linear-gradient(#382a52, #382a52);
+    background-size: 70px 70px, 180% 180%, 180% 180%, 180% 180%, 100% 100%;
+    background-position: 0 0, 0% 0%, 5% 5%, 20% 15%, 0 0;
+    background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    background-blend-mode: multiply, normal, normal, normal, normal;
+    animation: card-back-diffuse-pool 11s ease-in-out infinite;
+    border-color: rgba(255,255,255,0.18);
+}
+.card[data-pool="zhouyi"] .card-back-inner,
+.card[data-pool="zhouyi"] .card-back-dot {
+    color: rgba(255,255,255,0.92);
+}
+/* 周易紫卡背：点击抽卡用浅灰字与下划线 */
+.card[data-pool="zhouyi"] .card-back-draw-label {
+    color: #b8b8b8;
+    text-decoration-color: #b8b8b8;
+}
+/* 塔罗：弥散绿 + 颗粒（动态漂移更明显） */
+.card[data-pool="tarot"] .card-back {
+    background-image: var(--card-back-noise),
+        radial-gradient(ellipse 85% 75% at 28% 68%, rgba(90, 140, 85, 0.9), transparent 52%),
+        radial-gradient(ellipse 75% 85% at 72% 22%, rgba(55, 110, 60, 0.9), transparent 48%),
+        radial-gradient(ellipse 60% 60% at 50% 50%, rgba(60, 115, 65, 0.85), transparent 40%),
+        linear-gradient(#2a452a, #2a452a);
+    background-size: 70px 70px, 180% 180%, 180% 180%, 180% 180%, 100% 100%;
+    background-position: 0 0, 0% 0%, 5% 5%, 20% 15%, 0 0;
+    background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+    background-blend-mode: multiply, normal, normal, normal, normal;
+    animation: card-back-diffuse-pool 12s ease-in-out infinite;
+    border-color: rgba(0,0,0,0.12);
+}
+.card[data-pool="tarot"] .card-back-inner {
+    color: rgba(255,255,255,0.92);
+}
+
+.card-back-dot {
+    font-size: 40px;
+    opacity: 0.7;
+}
+
+/* 背面正中「点击抽卡」：正常字体、浅灰字与下划线、缩小一号 */
+.card-back-draw-label {
+    display: block;
+    margin-top: 18px;
+    font-size: 14px;
+    letter-spacing: 0.2em;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    text-decoration-color: #a8a8a8;
+    color: #a8a8a8;
+    cursor: pointer;
+}
+
+.card-back {
+    cursor: pointer;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 2px solid var(--primary-red);
+    padding-bottom: 6px;
+    padding-left: 0;
+    padding-right: 0;
+    box-sizing: border-box;
+}
+/* 塔罗时横线与日期区颜色统一（按花色） */
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="major"] .card-header {
+    border-bottom-color: #8b2500;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="pentacles"] .card-header {
+    border-bottom-color: #d9a00e;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="cups"] .card-header {
+    border-bottom-color: #1a3a5c;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="wands"] .card-header {
+    border-bottom-color: #1e4d1e;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="swords"] .card-header {
+    border-bottom-color: #2d2d2d;
+}
+
+#day-num {
+    font-size: 42px;
+    line-height: 1;
+    font-weight: bold;
+    color: var(--primary-red);
+}
+.date-sub { font-size: 12px; color: #666; }
+/* 塔罗时日期区：年月、距下一节气、农历用深米褐色 */
+.card-front:has(.card-content.tarot-active) .date-sub,
+.card-front:has(.card-content.tarot-active) .solar-term-header #term-days,
+.card-front:has(.card-content.tarot-active) .lunar-box {
+    color: #6b5d4d;
+}
+/* 塔罗时按花色：日期数字、现在的节气名、卡牌名用深色（年月/距节气/农历见上：深米褐） */
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="major"] #day-num,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="major"] .solar-term-header,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="major"] #term-name,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="major"] .tarot-title {
+    color: #8b2500;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="pentacles"] #day-num,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="pentacles"] .solar-term-header,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="pentacles"] #term-name,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="pentacles"] .tarot-title {
+    color: #d9a00e;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="cups"] #day-num,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="cups"] .solar-term-header,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="cups"] #term-name,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="cups"] .tarot-title {
+    color: #1a3a5c;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="wands"] #day-num,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="wands"] .solar-term-header,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="wands"] #term-name,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="wands"] .tarot-title {
+    color: #1e4d1e;
+}
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="swords"] #day-num,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="swords"] .solar-term-header,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="swords"] #term-name,
+.card-front:has(.card-content.tarot-active)[data-tarot-suit="swords"] .tarot-title {
+    color: #2d2d2d;
+}
+
+.header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2em;
+}
+/* 节气与农历统一行距，右块与左侧日期底部对齐 */
+.solar-term-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 13px;
+    line-height: 1.32;
+    color: var(--primary-red);
+}
+.solar-term-header #term-name { font-weight: 600; }
+.solar-term-header #term-days { color: #888; }
+.lunar-box {
+    text-align: right;
+    font-size: 13px;
+    color: #888;
+    line-height: 1.32;
+}
+
+.card-content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+    position: relative;
+}
+/* 塔罗时：内容区在红线下、框内，牌面+文字与框线留出间距，底部留出 seer 区 */
+.card-content.tarot-active {
+    position: absolute;
+    top: 88px;   /* 红线（header 底）之下 */
+    left: 12px;
+    right: 12px;
+    bottom: 40px; /* seer 贴框线后留出 logo 区 */
+    padding: 12px 8px 8px 8px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+/* 塔罗：弥散背景已移除，保留占位隐藏 */
+.tarot-image {
+    display: none;
+}
+
+/* 塔罗：中间牌图 + 卡牌名正/逆位 + 建议，牌图与背景都分正逆；整块在框内居中 */
+.tarot-layout {
+    display: none;
+    position: relative;
+    z-index: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    flex-shrink: 0;
+}
+.card-content.tarot-active .tarot-layout {
+    display: flex;
+}
+.card-content.tarot-active #quote-display {
+    display: none;
+}
+
+.tarot-center-card {
+    width: 110px;
+    height: 165px;
+    flex-shrink: 0;
+    background-size: contain;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+.tarot-center-card.tarot-reversed {
+    transform: rotate(180deg);
+}
+
+.tarot-title {
+    font-size: 12px;
+    color: var(--primary-red);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-align: center;
+}
+
+.tarot-advice {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text-main);
+    text-align: center;
+    max-width: 100%;
+}
+
+/* 逆位：文案淡淡呼吸灯闪烁，温柔提醒感 */
+.card-content.tarot-reversed-display .tarot-title,
+.card-content.tarot-reversed-display .tarot-advice {
+    animation: tarot-breathe 3s ease-in-out infinite;
+}
+
+@keyframes tarot-breathe {
+    0%, 100% {
+        opacity: 1;
+        text-shadow: 0 0 6px rgba(178, 34, 34, 0.15);
+    }
+    50% {
+        opacity: 0.88;
+        text-shadow: 0 0 14px rgba(178, 34, 34, 0.28);
+    }
+}
+
+#quote-display.tarot-quote {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-main);
+    text-shadow: 0 0 8px rgba(252, 250, 242, 0.9);
+}
+
+#quote-display {
+    font-size: 22px;
+    line-height: 1.8;
+    text-align: center;
+    color: var(--text-main);
+    word-break: keep-all; /* 避免中文词中间断行（如「共同」被拆成两行） */
+    letter-spacing: 2px;
+}
+
+/* 毛泽东思想：正文 14px，出处 12px；预留右侧空间避免最后一字右上角被裁切，并弱化字距 */
+#quote-display.mao-quote {
+    font-size: 14px;
+    text-align: left;
+    letter-spacing: 0.02em;
+    padding-right: 0.15em;
+    min-width: 0;
+    overflow: visible;
+}
+.card-footer.mao-footer .source-info {
+    font-size: 12px;
+    padding-right: 0.15em;
+    overflow: visible;
+}
+#source-display {
+    letter-spacing: 0.02em;
+}
+
+/* 兵法：字号与逗号分行规则参考周易 advice */
+#quote-display.bingfa-quote {
+    line-height: 1.85;
+    text-align: left;
+    letter-spacing: 0.02em;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6em;
+}
+#quote-display.bingfa-quote .bingfa-original {
+    font-size: 14px;
+    white-space: pre-line;
+    cursor: pointer;
+}
+#quote-display.bingfa-quote .bingfa-source {
+    font-size: 12px;
+    color: #555;
+    text-align: right;
+    margin-top: 0.2em;
+}
+#quote-display.bingfa-quote .bingfa-translation {
+    font-size: 12px;
+    white-space: pre-line;
+    display: none;
+}
+#quote-display.bingfa-quote .bingfa-translation.is-visible {
+    display: block;
+}
+
+/* ---------- 周易：三区垂直分区 + 淡米黄底 + 自下而上浮现 ---------- */
+.card-content.quote-zhouyi {
+    padding: 1em 0.4em 0.5em 0.4em;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    max-width: 100%;
+}
+.card-content.quote-zhouyi #quote-display.zhouyi-layout {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    max-width: 100%;
+    justify-content: space-evenly;
+    gap: 0.35em;
+}
+
+/* Section 1：卦序左、卦象中、卦名右；下移使卦象+原文整体下移，建议由 s3 负 margin 保持原位 */
+.zhouyi-s1 {
+    flex: 0 0 auto;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+    margin-top: 0.6em;
+}
+.zhouyi-s1 .zhouyi-id-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15em;
+    flex-shrink: 0;
+}
+.zhouyi-s1 .zhouyi-id {
+    font-size: 12px;
+    letter-spacing: 0.15em;
+    color: #b22222;
+}
+.zhouyi-s1 .zhouyi-shortName {
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: #b22222;
+}
+/* 卦象占位与 s1 同高，卦象字符在占位内上下居中；收紧行高并上移补偿字体下偏 */
+.zhouyi-s1 .zhouyi-symbol {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    font-size: 3.8em;
+    line-height: 0;
+    color: #b22222;
+    font-weight: bold;
+    flex-shrink: 0;
+    transform: translateY(-0.08em);
+}
+.zhouyi-s1 .zhouyi-name {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    color: #b22222;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* Section 2：中 1/3 — original 从左到右横向居中 */
+.zhouyi-s2 {
+    flex: 1 1 0;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.zhouyi-s2 .zhouyi-original {
+    letter-spacing: 0.05em; /* 与建议标题一致 */
+    font-family: 'Noto Serif SC', 'Songti SC', 'SimSun', serif;
+    font-size: 15px;
+    line-height: 2;
+    color: #b22222;
+    text-align: center;
+    max-width: 100%;
+    overflow-wrap: break-word;
+}
+
+/* Section 3：建议部分不下移，用负 margin 抵消 s1 下移带来的整体下推 */
+.zhouyi-s3 {
+    flex: 1 1 0;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 0.25em 0 0;
+    padding-left: 0;
+    padding-right: 0;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    margin-top: -0.6em;
+}
+.zhouyi-s3 .zhouyi-title-text {
+    font-size: 15px;
+    font-weight: 700;
+    color: #b22222;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.3em;
+    text-align: left;
+    width: 100%;
+}
+.zhouyi-s3 .zhouyi-advice {
+    font-size: 12px;
+    line-height: 1.8;
+    color: #444;
+    text-align: left;
+    width: 100%;
+    max-width: 100%;
+    white-space: pre-line;
+    letter-spacing: 0.02em;
+    overflow-wrap: break-word;
+}
+
+/* 从底部向上轻微浮现动画 */
+@keyframes zhouyi-float {
+    from {
+        opacity: 0;
+        transform: translateY(14px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.zhouyi-float {
+    animation: zhouyi-float 0.6s ease-out forwards;
+}
+.zhouyi-s1.zhouyi-float { animation-delay: 0.1s; }
+.zhouyi-s2.zhouyi-float { animation-delay: 0.25s; }
+.zhouyi-s3.zhouyi-float { animation-delay: 0.4s; }
+
+.card-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.card-footer.zhouyi-footer-hidden,
+.card-footer.tarot-footer-hidden {
+    display: none;
+}
+
+.source-info {
+    text-align: right;
+    font-size: 14px;
+    color: #555;
+    font-style: italic;
+}
+
+/* 兵法时：出处已移至原文下方；右下方为「点击原文查看翻译」提示 */
+.card-footer.bingfa-footer .source-info {
+    font-size: 12px;
+}
+#source-display.bingfa-hint-btn {
+    cursor: pointer;
+    font-style: normal;
+    padding: 4px 10px;
+    border: 1px solid rgba(178, 34, 34, 0.4);
+    border-radius: 4px;
+    color: var(--primary-red);
+    font-size: 11px;
+}
+#source-display.bingfa-hint-btn:hover {
+    background: rgba(178, 34, 34, 0.06);
+}
+
+/* 卡片下方译文区域：点击「查看翻译」显示，12px，颜色比正文浅；顺势上挪与卡片底对齐 */
+.bingfa-translation-below {
+    display: none;
+    width: 320px;
+    max-width: 100%;
+    margin-top: 8px;
+    padding: 12px 0 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    font-size: 12px;
+    line-height: 1.85;
+    color: #666;
+    white-space: pre-line;
+    text-align: left;
+    letter-spacing: 0.02em;
+}
+.bingfa-translation-below.is-visible {
+    display: block;
+}
+
+.solar-term {
+    font-size: 12px;
+    color: var(--primary-red);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* 抽出卡片后才显示：再抽一张在整体页面正中，下载键居最右；上边距 10px */
+.card-actions-after-draw {
+    display: none;
+    position: relative;
+    width: 320px;
+    max-width: 100%;
+    height: 36px;
+    margin-top: -10px;
+    box-sizing: border-box;
+}
+.card-actions-after-draw.is-visible {
+    display: block;
+}
+.card-actions-after-draw .draw-btn-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+/* 再抽一张 hover 时保留居中，避免 scale 覆盖 translate 导致按钮位移 */
+.card-actions-after-draw .draw-btn-center:hover {
+    transform: translateX(-50%) scale(1.04);
+}
+.card-actions-after-draw .draw-btn-icon {
+    position: absolute;
+    right: 0;
+    top: 0;
+}
+.card-actions-after-draw .draw-btn {
+    margin: 0;
+}
+
+/* 下载按钮：50px 宽，与 draw-btn 同高；灰色 */
+.draw-btn.draw-btn-icon {
+    width: 50px;
+    min-width: 50px;
+    height: 36px;
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    border-radius: 18px;
+    color: #666;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.25s ease, background 0.2s, color 0.2s;
+}
+.draw-btn.draw-btn-icon:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #444;
+}
+.draw-btn.draw-btn-icon .icon-download {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.draw-btn {
+    min-width: 100px;
+    width: 100px;
+    height: 36px;
+    padding: 0 10px;
+    margin: 0;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    line-height: 1;
+    vertical-align: middle;
+    background: rgba(178, 34, 34, 0.78);
+    color: white;
+    border: 1px solid rgba(178, 34, 34, 0.35);
+    border-radius: 18px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.25s ease, background 0.2s, border-color 0.2s;
+}
+
+.draw-btn:hover {
+    transform: scale(1.04);
+    background: rgba(178, 34, 34, 0.88);
+    border-color: rgba(178, 34, 34, 0.5);
+}
+
+/* 再抽一张：灰色 */
+.draw-btn-secondary {
+    width: 100px;
+    min-width: 100px;
+    height: 36px;
+    padding: 0 10px;
+    font-size: 12px;
+    background: rgba(255, 255, 255, 0.6);
+    color: #555;
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    transition: transform 0.25s ease, background 0.2s, border-color 0.2s;
+}
+
+.draw-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: rgba(0, 0, 0, 0.25);
+}
+
+.pool-selector button {
+    flex: 1;
+    margin: 0 2px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    border-bottom: 3px solid transparent;
+    color: #666;
+    padding: 6px 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.pool-selector button:first-of-type { margin-left: 0; }
+.pool-selector button:last-of-type { margin-right: 0; }
+.pool-selector button:hover {
+    color: #333;
+    background: rgba(0, 0, 0, 0.04);
+}
+.pool-selector button.active {
+    border-bottom-color: var(--pool-active-color, #9d2933);
+    background: rgba(0, 0, 0, 0.04);
+    color: #333;
+}
+
+/* ========== 移动端适配（iPhone 15 等）：卡片保持 2:3 比例，安全区与触控优化 ========== */
+@media (max-width: 430px) {
+    body {
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        min-height: 100dvh;
+        box-sizing: border-box;
+    }
+    .app-container {
+        padding: 0 12px;
+        gap: 16px;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    .pool-selector {
+        width: min(320px, calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+        margin-bottom: -16px;
+    }
+    /* 卡片宽度随视口缩放，保持 2:3 比例，内部相对排版不变 */
+    .card {
+        width: min(320px, calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+        height: auto;
+        aspect-ratio: 2 / 3;
+        flex-shrink: 0;
+    }
+    .card-actions-after-draw,
+    .card-actions-after-draw.is-visible {
+        width: min(320px, calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+        max-width: 100%;
+        height: 44px;
+    }
+    .bingfa-translation-below {
+        width: min(320px, calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+    }
+    /* 卡池按钮：等分排布，满足 44px 最小触控区域 */
+    .pool-selector button {
+        min-height: 44px;
+        padding: 10px 4px;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+    /* 再抽一张 / 保存按钮：触控友好 */
+    .card-actions-after-draw .draw-btn,
+    .draw-btn.draw-btn-icon {
+        min-height: 44px;
+        height: 44px;
+    }
+    .card-actions-after-draw .draw-btn-center {
+        min-height: 44px;
+        height: 44px;
+    }
+    .card-back {
+        cursor: pointer;
+    }
+    /* 移动端：seer 贴框线已由全局 padding 统一处理 */
+    /* 周易：移动端略收紧内边距与字号 */
+    .card-content.quote-zhouyi {
+        padding: 0.75em 0.3em 0.4em 0.3em;
+    }
+    .zhouyi-s1 {
+        margin-top: 0.5em;
+    }
+    .zhouyi-s3 {
+        margin-top: -0.5em;
+    }
+    .zhouyi-s1 .zhouyi-id,
+    .zhouyi-s1 .zhouyi-shortName {
+        font-size: 11px;
+    }
+    .zhouyi-s1 .zhouyi-symbol {
+        font-size: 3.2em;
+    }
+    .zhouyi-s1 .zhouyi-name {
+        font-size: 13px;
+    }
+    .zhouyi-s2 .zhouyi-original {
+        font-size: 14px;
+    }
+    .zhouyi-s3 .zhouyi-title-text {
+        font-size: 14px;
+    }
+    .zhouyi-s3 .zhouyi-advice {
+        font-size: 11px;
+        line-height: 1.75;
+    }
+    /* 塔罗：移动端缩小牌图与边距，留足 seer 区 */
+    .card-content.tarot-active {
+        top: 82px;
+        left: 10px;
+        right: 10px;
+        bottom: 36px;
+        padding: 8px 6px 6px 6px;
+    }
+    .tarot-layout {
+        gap: 6px;
+    }
+    .tarot-center-card {
+        width: 96px;
+        height: 144px;
+    }
+    .tarot-title {
+        font-size: 11px;
+    }
+    .tarot-advice {
+        font-size: 11px;
+        line-height: 1.55;
+    }
+}

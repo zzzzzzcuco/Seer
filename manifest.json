@@ -1,0 +1,27 @@
+{
+  "name": "seer",
+  "short_name": "seer",
+  "description": "每日抽卡：红星、兵法、周易、塔罗",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "./",
+  "start_url": "./index.html",
+  "background_color": "#fff8e8",
+  "theme_color": "#b22222",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
