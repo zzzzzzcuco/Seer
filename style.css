@@ -345,6 +345,12 @@ body {
     justify-content: center;
     padding-bottom: 28px;
 }
+.card-back-date {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    margin: 0 0 6px 0;
+    opacity: 0.85;
+}
 .card-back-hint {
     font-family: 'Huiwen Mincho', '汇文明朝体', 'Noto Serif SC', serif;
     font-size: 12px;

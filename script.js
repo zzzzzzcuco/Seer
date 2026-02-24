@@ -178,11 +178,10 @@ const WEEK_CN = ['周日','周一','周二','周三','周四','周五','周六']
 const MONTH_NAMES_CN = ['一月','二月','三月','四月','五月','六月','七月','八月','九月','十月','十一月','十二月'];
 const BEIJING_OFFSET_MS = 8 * 3600 * 1000;
 
-/** 当前北京时间对应的日期部分（年/月/日/星期） */
+/** 当前北京时间对应的日期部分（年/月/日/星期）。北京 = UTC+8，用 UTC 时间加 8 小时再取 UTC 年月日即得北京日期 */
 function getBeijingDateParts() {
     var now = new Date();
-    var utc = now.getTime() + now.getTimezoneOffset() * 60000;
-    var beijingMs = utc + BEIJING_OFFSET_MS;
+    var beijingMs = now.getTime() + BEIJING_OFFSET_MS;
     var b = new Date(beijingMs);
     return {
         year: b.getUTCFullYear(),
@@ -656,6 +655,7 @@ function applyOpenScreenCardBack() {
     var cardBack = document.getElementById('cardBack');
     var nameEl = document.getElementById('card-back-color-name');
     var hintEl = document.getElementById('card-back-hint');
+    var dateEl = document.getElementById('card-back-date');
     if (!card || !cardBack || !nameEl) return;
     var today = getTodayDateString();
     var stored = null;
@@ -681,6 +681,14 @@ function applyOpenScreenCardBack() {
     var textColor = dark ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.78)';
     nameEl.style.color = textColor;
     if (hintEl) hintEl.style.color = dark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.65)';
+    if (dateEl) {
+        var now = new Date();
+        var beijingMs = now.getTime() + BEIJING_OFFSET_MS;
+        var b = new Date(beijingMs);
+        var timeStr = b.getUTCHours() + ':' + String(b.getUTCMinutes()).padStart(2, '0');
+        dateEl.textContent = '\u4eca\u65e5 ' + getTodayDateString() + '  ' + timeStr + ' \u5317\u4eac\u65f6\u95f4';
+        dateEl.style.color = dark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)';
+    }
     var poolSel = document.querySelector('.pool-selector');
     if (poolSel) poolSel.style.setProperty('--pool-active-color', color.hex);
 }
@@ -694,9 +702,15 @@ function getTodayDateString() {
 /** 北京时间 0 点整刷新：清空昨日卡面、翻回卡背、更新日期与再抽按钮，并预约下一次 0 点 */
 var beijingMidnightTimer = null;
 function refreshAtBeijingMidnight() {
+    var today = getTodayDateString();
+    if (lastKnownBeijingDate && today === lastKnownBeijingDate) {
+        /* 仍是同一天（定时器可能被提前触发或时钟偏差），只重新预约下一次 0 点，不重复刷新 */
+        scheduleNextBeijingMidnight();
+        return;
+    }
     lastDrawnByPool = { mao: null, bingfa: null, zhouyi: null, tarot: null };
     updatePageDate();
-    lastKnownBeijingDate = getTodayDateString();
+    lastKnownBeijingDate = today;
     updateReDrawButton();
     changePool(currentPool);
     scheduleNextBeijingMidnight();
@@ -709,15 +723,35 @@ function scheduleNextBeijingMidnight() {
 
 /** 页面重新可见时检查是否已跨日（解决后台时定时器未触发导致日期不刷新） */
 var lastKnownBeijingDate = '';
+var beijingMidnightCheckInterval = null;
 function checkDateRefreshOnVisible() {
     var today = getTodayDateString();
     if (lastKnownBeijingDate && lastKnownBeijingDate !== today) {
         refreshAtBeijingMidnight();
     }
     lastKnownBeijingDate = today;
+    /* 可见时每分钟检查一次是否已跨北京 0 点，弥补 setTimeout 被系统节流导致的不准时 */
+    if (beijingMidnightCheckInterval) clearInterval(beijingMidnightCheckInterval);
+    beijingMidnightCheckInterval = setInterval(function () {
+        if (document.visibilityState !== 'visible') return;
+        var t = getTodayDateString();
+        if (lastKnownBeijingDate && t !== lastKnownBeijingDate) {
+            refreshAtBeijingMidnight();
+        }
+    }, 60000);
+}
+function stopBeijingMidnightCheckInterval() {
+    if (beijingMidnightCheckInterval) {
+        clearInterval(beijingMidnightCheckInterval);
+        beijingMidnightCheckInterval = null;
+    }
 }
 document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') checkDateRefreshOnVisible();
+    if (document.visibilityState === 'visible') {
+        checkDateRefreshOnVisible();
+    } else {
+        stopBeijingMidnightCheckInterval();
+    }
 });
 window.addEventListener('focus', checkDateRefreshOnVisible);
 
@@ -1374,6 +1408,7 @@ document.addEventListener('DOMContentLoaded', function () {
     updatePoolButtonLabels();
     updateReDrawButton();
     scheduleNextBeijingMidnight();
+    if (document.visibilityState === 'visible') checkDateRefreshOnVisible();
     var cardEl = document.getElementById('capture-area');
     if (cardEl && !cardEl.getAttribute('data-pool')) cardEl.setAttribute('data-pool', '');
     applyOpenScreenCardBack();
