@@ -1088,6 +1088,19 @@ var POOL_ACCENT_COLORS = { mao: '#8b3732', bingfa: '#1a3a5c', zhouyi: '#382a52',
 
 function changePool(poolName) {
     currentPool = poolName;
+    /* 切到非兵法卡池时清空并收起兵法译文，避免翻译残留在页面上 */
+    if (poolName !== 'bingfa') {
+        var belowBingfa = document.getElementById('bingfa-translation-below');
+        if (belowBingfa) {
+            belowBingfa.textContent = '';
+            belowBingfa.classList.remove('is-visible');
+            belowBingfa.setAttribute('aria-hidden', 'true');
+        }
+        var sourceDisplay = document.getElementById('source-display');
+        if (sourceDisplay && sourceDisplay.classList.contains('bingfa-hint-btn')) {
+            sourceDisplay.innerText = '查看翻译';
+        }
+    }
     document.querySelectorAll('.pool-selector button').forEach(function (btn) {
         btn.classList.toggle('active', btn.getAttribute('data-pool') === poolName);
     });
@@ -1339,7 +1352,8 @@ function drawCard() {
     }, 1000);
 }
 
-/** 保存卡片正面为图片（需先引入 html2canvas）；孙子兵法「查看翻译/收起翻译」按钮与译文区不显示在图片中。 */
+/** 保存卡片正面为图片（需先引入 html2canvas）；孙子兵法「查看翻译/收起翻译」按钮与译文区不显示在图片中。
+ * 移动端优先使用系统分享（可一键「保存到相册」）；桌面端使用下载链接。 */
 async function saveCardAsImage() {
     var cardEl = document.getElementById('cardFront');
     if (!cardEl) return;
@@ -1365,16 +1379,43 @@ async function saveCardAsImage() {
             useCORS: true,
             scale: 3
         });
-        var link = document.createElement('a');
-        link.download = '\u4ECA\u65E5\u542F\u793A-' + Date.now() + '.png';
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        var fileName = '\u4ECA\u65E5\u542F\u793A-' + Date.now() + '.png';
+        var blob = await new Promise(function (resolve) {
+            canvas.toBlob(resolve, 'image/png', 1);
+        });
+        if (!blob) {
+            fallbackDownload(canvas, fileName);
+            return;
+        }
+        var file = new File([blob], fileName, { type: 'image/png' });
+        var canShare = typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
+        if (canShare) {
+            try {
+                await navigator.share({
+                    files: [file],
+                    title: '\u4ECA\u65E5\u542F\u793A',
+                    text: ''
+                });
+                return;
+            } catch (e) {
+                if (e.name !== 'AbortError') fallbackDownload(canvas, fileName);
+            }
+        } else {
+            fallbackDownload(canvas, fileName);
+        }
     } catch (e) {
         console.error('保存图片失败', e);
     } finally {
         if (belowEl && !hadHidden) belowEl.style.removeProperty('display');
         if (footerEl) footerEl.style.removeProperty('display');
     }
+}
+
+function fallbackDownload(canvas, fileName) {
+    var link = document.createElement('a');
+    link.download = fileName;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
 }
 
 /** 再抽一张：淡出后重新抽卡，翻转时只显示卡背，翻回正面后再显示新内容；今日已抽满则不再抽 */
