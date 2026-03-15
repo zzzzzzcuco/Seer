@@ -1374,10 +1374,15 @@ async function saveCardAsImage() {
         footerEl.style.setProperty('display', 'none');
     }
     try {
+        /* 提高导出倍率：至少 4 倍，高分辨率屏按 devicePixelRatio 再乘 2，上限 6，保证保存的图片不逊于页面显示清晰度 */
+        var dpr = window.devicePixelRatio || 2;
+        var scale = Math.min(6, Math.max(4, Math.ceil(dpr * 2)));
         var canvas = await html2canvas(cardEl, {
             backgroundColor: null,
             useCORS: true,
-            scale: 3
+            scale: scale,
+            imageTimeout: 0,
+            logging: false
         });
         var fileName = '\u4ECA\u65E5\u542F\u793A-' + Date.now() + '.png';
         var blob = await new Promise(function (resolve) {
